@@ -1,0 +1,15 @@
+{
+  "name": "Mis Finanzas — Libro de Cuentas",
+  "short_name": "Mis Finanzas",
+  "description": "Control de gastos e ingresos por cuenta: Efectivo, Bancolombia, Nequi y Rappi.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#12211F",
+  "theme_color": "#12211F",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
