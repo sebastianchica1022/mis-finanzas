@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Mis Finanzas — Libro de Cuentas</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12211F">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#12211F;
+    --ink-light:#1B302C;
+    --ink-lighter:#24413A;
+    --paper:#F1E8D2;
+    --paper-dim:#E7DCBF;
+    --gold:#C9A227;
+    --rust:#C1432A;
+    --mint:#4E9A6B;
+    --efectivo:#4E9A6B;
+    --bancolombia:#E8B923;
+    --nequi:#E8368F;
+    --rappi:#FF5A3C;
+    --ingreso:#4E9A6B;
+    --text-on-ink:#EDE6D0;
+    --muted:#8FA39C;
+    --text-on-paper:#241C0F;
+    --muted-on-paper:#7A6E52;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at top left, rgba(255,255,255,0.04), transparent 55%),
+      var(--ink);
+    color:var(--text-on-ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:28px 20px 60px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+  .num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+
+  header.top{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    gap:20px;flex-wrap:wrap;
+    border-bottom:1px solid rgba(237,230,208,0.15);
+    padding-bottom:18px;margin-bottom:26px;
+  }
+  header.top .brand-mark{
+    display:flex;align-items:center;gap:14px;
+  }
+  .clasp{
+    width:34px;height:44px;border-radius:3px;
+    background:linear-gradient(160deg,var(--gold),#8f7115);
+    box-shadow:0 2px 6px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.4);
+    flex-shrink:0;
+  }
+  h1{
+    font-family:'Fraunces',serif;font-weight:600;font-size:34px;
+    margin:0;letter-spacing:-0.01em;
+  }
+  header.top p.sub{margin:4px 0 0;color:var(--muted);font-size:13.5px;letter-spacing:.02em;}
+  .month-nav{display:flex;align-items:center;gap:10px;}
+  .month-nav button{
+    background:var(--ink-light);border:1px solid rgba(237,230,208,0.18);
+    color:var(--text-on-ink);width:32px;height:32px;border-radius:8px;
+    cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;
+  }
+  .month-nav button:hover{background:var(--ink-lighter);}
+  .month-label{font-family:'Fraunces',serif;font-size:16px;min-width:150px;text-align:center;text-transform:capitalize;}
+
+  /* Account ledger tabs */
+  .accounts{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:14px;margin-bottom:22px;
+  }
+  .acct-card{
+    position:relative;background:var(--ink-light);
+    border:1px solid rgba(237,230,208,0.12);
+    border-top:4px solid var(--acc);
+    border-radius:4px 4px 10px 10px;
+    padding:16px 16px 14px;cursor:pointer;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .acct-card:hover{transform:translateY(-2px);background:var(--ink-lighter);}
+  .acct-card.active{background:var(--ink-lighter);box-shadow:0 0 0 1.5px var(--acc);}
+  .acct-card::after{
+    content:'';position:absolute;top:-4px;right:14px;width:26px;height:8px;
+    background:var(--acc);border-radius:0 0 3px 3px;
+  }
+  .acct-name{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:flex;align-items:center;gap:7px;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--acc);}
+  .acct-balance{font-family:'IBM Plex Mono',monospace;font-size:21px;margin-top:6px;font-weight:500;}
+  .acct-balance.neg{color:#E8785B;}
+
+  /* Summary strip */
+  .summary{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:1px;background:rgba(237,230,208,0.12);
+    border:1px solid rgba(237,230,208,0.12);border-radius:10px;overflow:hidden;
+    margin-bottom:28px;
+  }
+  .sum-item{background:var(--ink);padding:16px 18px;}
+  .sum-item .lbl{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+  .sum-item .val{font-family:'IBM Plex Mono',monospace;font-size:19px;margin-top:5px;}
+  .sum-item.ingreso .val{color:var(--mint);}
+  .sum-item.gasto .val{color:#E8785B;}
+  .sum-item.ahorro .val{color:var(--gold);}
+  .sum-item.balance .val{color:var(--text-on-ink);font-weight:600;}
+
+  /* the ledger page */
+  .page{
+    background:var(--paper);color:var(--text-on-paper);
+    border-radius:12px;padding:26px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.35);
+    position:relative;
+  }
+  .page::before{
+    content:'';position:absolute;left:52px;top:0;bottom:0;width:1px;
+    background:rgba(193,67,42,0.25);pointer-events:none;
+  }
+  .grid2{display:grid;grid-template-columns:340px 1fr;gap:30px;}
+  @media(max-width:860px){.grid2{grid-template-columns:1fr;} .page::before{display:none;}}
+
+  h2{font-family:'Fraunces',serif;font-size:19px;font-weight:600;margin:0 0 14px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-on-paper);margin-bottom:5px;}
+  .field select, .field input{
+    width:100%;padding:9px 10px;border:1px solid rgba(36,28,15,0.22);
+    border-radius:6px;background:#FBF7EC;font-family:'Inter',sans-serif;
+    font-size:14px;color:var(--text-on-paper);
+  }
+  .field input.num-in{font-family:'IBM Plex Mono',monospace;}
+  .type-toggle{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;}
+  .type-toggle button{
+    padding:8px 6px;border-radius:6px;border:1px solid rgba(36,28,15,0.2);
+    background:#FBF7EC;font-size:12.5px;cursor:pointer;color:var(--text-on-paper);
+    font-family:'Inter',sans-serif;font-weight:500;
+  }
+  .type-toggle button[data-type="transferencia"]{grid-column:1 / -1;}
+  .type-toggle button.active{color:#fff;border-color:transparent;}
+  .type-toggle button.active[data-type="gasto"]{background:var(--rust);}
+  .type-toggle button.active[data-type="ingreso"]{background:var(--mint);}
+  .type-toggle button.active[data-type="ahorro"]{background:var(--gold);}
+  .type-toggle button.active[data-type="emergencia"]{background:#8A6D9B;}
+  .type-toggle button.active[data-type="transferencia"]{background:#3E7CB1;}
+
+  .acct-toggle{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  .acct-toggle button{
+    flex:1;min-width:80px;padding:8px 6px;border-radius:6px;border:1px solid rgba(36,28,15,0.2);
+    background:#FBF7EC;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;
+    display:flex;align-items:center;justify-content:center;gap:5px;color:var(--text-on-paper);
+  }
+  .acct-toggle button .dot{width:7px;height:7px;border-radius:50%;}
+  .acct-toggle button.active{background:var(--text-on-paper);color:#FBF7EC;border-color:var(--text-on-paper);}
+
+  .btn-add{
+    width:100%;padding:11px;border:none;border-radius:7px;
+    background:var(--ink);color:var(--paper);font-family:'Fraunces',serif;
+    font-size:15px;font-weight:600;cursor:pointer;letter-spacing:.01em;
+    margin-top:4px;
+  }
+  .btn-add:hover{background:var(--ink-light);}
+
+  .btn-import{
+    width:100%;padding:10px;border:1px dashed rgba(36,28,15,0.35);border-radius:7px;
+    background:transparent;color:var(--text-on-paper);font-family:'Inter',sans-serif;
+    font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;
+  }
+  .btn-import:hover{background:rgba(36,28,15,0.05);}
+
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(10,16,15,0.7);
+    align-items:center;justify-content:center;padding:20px;z-index:50;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:var(--paper);color:var(--text-on-paper);border-radius:12px;
+    max-width:640px;width:100%;max-height:88vh;overflow:auto;padding:24px;
+    box-shadow:0 30px 60px rgba(0,0,0,0.5);
+  }
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .modal-close{background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted-on-paper);}
+  .modal-hint{font-size:13px;color:var(--muted-on-paper);line-height:1.5;margin:0 0 14px;}
+  #smsInput{
+    width:100%;min-height:130px;padding:12px;border:1px solid rgba(36,28,15,0.22);
+    border-radius:8px;background:#FBF7EC;font-family:'Inter',sans-serif;font-size:13px;
+    resize:vertical;margin-bottom:10px;color:var(--text-on-paper);
+  }
+  .parsed-item{
+    border:1px solid rgba(36,28,15,0.15);border-radius:8px;padding:12px;margin-top:10px;
+    display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;
+  }
+  .parsed-item input[type="checkbox"]{margin-top:4px;width:16px;height:16px;}
+  .parsed-item .raw{font-size:11px;color:var(--muted-on-paper);font-style:italic;margin-bottom:6px;}
+  .parsed-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .parsed-row select, .parsed-row input{
+    padding:6px 8px;border-radius:6px;border:1px solid rgba(36,28,15,0.2);
+    background:#FBF7EC;font-size:12.5px;font-family:'Inter',sans-serif;color:var(--text-on-paper);
+  }
+  .parsed-amount{font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .unmatched{
+    border:1px dashed rgba(36,28,15,0.3);border-radius:8px;padding:10px 12px;margin-top:10px;
+    font-size:12px;color:var(--muted-on-paper);
+  }
+
+  .chart-box{margin-top:22px;padding-top:18px;border-top:1px dashed rgba(36,28,15,0.25);}
+
+  /* transactions table */
+  .list-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .filters{display:flex;gap:6px;flex-wrap:wrap;}
+  .filters select{
+    padding:6px 8px;border-radius:6px;border:1px solid rgba(36,28,15,0.2);
+    background:#FBF7EC;font-size:12.5px;font-family:'Inter',sans-serif;color:var(--text-on-paper);
+  }
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  thead th{
+    text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--muted-on-paper);padding:6px 8px;border-bottom:1px solid rgba(36,28,15,0.2);
+  }
+  tbody td{padding:9px 8px;border-bottom:1px solid rgba(36,28,15,0.09);vertical-align:middle;}
+  tbody tr:hover{background:rgba(36,28,15,0.04);}
+  .tag{
+    display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;
+    font-size:11px;font-weight:600;color:#fff;
+  }
+  td.amount{font-family:'IBM Plex Mono',monospace;text-align:right;white-space:nowrap;}
+  td.amount.gasto{color:var(--rust);}
+  td.amount.ingreso{color:var(--mint);}
+  td.amount.ahorro{color:#a3821f;}
+  td.amount.emergencia{color:#6d5480;}
+  .del-btn{background:none;border:none;cursor:pointer;color:var(--muted-on-paper);font-size:15px;padding:2px 6px;}
+  .del-btn:hover{color:var(--rust);}
+  .empty-row td{text-align:center;color:var(--muted-on-paper);padding:26px;font-style:italic;}
+
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:30px;letter-spacing:.02em;}
+  ::-webkit-scrollbar{height:6px;width:6px;}
+  ::-webkit-scrollbar-thumb{background:rgba(237,230,208,0.2);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand-mark">
+      <div class="clasp"></div>
+      <div>
+        <h1>Mis Finanzas</h1>
+        <p class="sub">Libro de cuentas — efectivo, Bancolombia, Nequi y Rappi</p>
+      </div>
+    </div>
+    <div class="month-nav">
+      <button id="prevMonth">‹</button>
+      <div class="month-label" id="monthLabel">—</div>
+      <button id="nextMonth">›</button>
+    </div>
+  </header>
+
+  <div class="accounts" id="accountsRow"></div>
+
+  <div class="summary" id="summaryRow"></div>
+
+  <div class="page">
+    <div class="grid2">
+      <div>
+        <h2>Registrar movimiento</h2>
+        <div class="type-toggle" id="typeToggle">
+          <button data-type="gasto" class="active">Gasto</button>
+          <button data-type="ingreso">Ingreso</button>
+          <button data-type="ahorro">Ahorro</button>
+          <button data-type="emergencia">Ahorro emergencia</button>
+          <button data-type="transferencia">Transferencia entre cuentas</button>
+        </div>
+
+        <div class="field" id="categoryField">
+          <label>Categoría</label>
+          <select id="categorySelect"></select>
+        </div>
+        <div class="field" id="customCatField" style="display:none;">
+          <label>Especifica</label>
+          <input type="text" id="customCat" placeholder="Ej: Regalo cumpleaños">
+        </div>
+        <div class="field" id="toAccountField" style="display:none;">
+          <label>Cuenta destino</label>
+          <select id="toAccountSelect"></select>
+        </div>
+
+        <div class="field">
+          <label>Cuenta de origen / destino</label>
+          <div class="acct-toggle" id="acctToggle"></div>
+        </div>
+
+        <div class="field">
+          <label>Monto (COP)</label>
+          <input type="number" min="0" step="1" class="num-in" id="amountInput" placeholder="0">
+        </div>
+
+        <div class="field">
+          <label>Fecha</label>
+          <input type="date" id="dateInput">
+        </div>
+
+        <div class="field">
+          <label>Nota (opcional)</label>
+          <input type="text" id="noteInput" placeholder="Detalle del movimiento">
+        </div>
+
+        <button class="btn-add" id="addBtn">+ Agregar al libro</button>
+
+        <button class="btn-import" id="openImport">📩 Importar mensajes del banco</button>
+
+        <div class="chart-box">
+          <h2>Gastos por categoría</h2>
+          <canvas id="pieChart" height="220"></canvas>
+        </div>
+      </div>
+
+      <div>
+        <div class="list-head">
+          <h2>Movimientos del mes</h2>
+          <div class="filters">
+            <select id="filterAccount">
+              <option value="">Todas las cuentas</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="bancolombia">Bancolombia</option>
+              <option value="nequi">Nequi</option>
+              <option value="rappi">Cuenta Rappi</option>
+            </select>
+            <select id="filterType">
+              <option value="">Todos los tipos</option>
+              <option value="gasto">Gasto</option>
+              <option value="ingreso">Ingreso</option>
+              <option value="ahorro">Ahorro</option>
+              <option value="emergencia">Ahorro emergencia</option>
+            </select>
+          </div>
+        </div>
+        <div style="max-height:560px;overflow:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th><th>Categoría</th><th>Cuenta</th><th>Nota</th>
+                <th style="text-align:right;">Monto</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="txBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Tus datos se guardan solo en este navegador — privados, no se envían a ningún servidor.</footer>
+</div>
+
+<div class="modal-overlay" id="importOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Importar mensajes del banco</h2>
+      <button class="modal-close" id="closeImport">✕</button>
+    </div>
+    <p class="modal-hint">Copia y pega aquí varios mensajes SMS de Bancolombia (compras, pagos, retiros o transferencias recibidas). Los interpreto automáticamente; luego revisas y confirmas antes de guardarlos. Nada se envía fuera de tu navegador.</p>
+    <textarea id="smsInput" placeholder="Pega aquí el texto copiado de tus mensajes, uno tras otro..."></textarea>
+    <button class="btn-add" id="parseBtn">Analizar mensajes</button>
+
+    <div id="importResults"></div>
+
+    <button class="btn-add" id="confirmImport" style="display:none;margin-top:14px;">Agregar movimientos seleccionados</button>
+  </div>
+</div>
+
+<script>
+const ACCOUNTS = {
+  efectivo:    {label:'Efectivo',        color:getVar('--efectivo')},
+  bancolombia: {label:'Bancolombia',     color:getVar('--bancolombia')},
+  nequi:       {label:'Nequi',           color:getVar('--nequi')},
+  rappi:       {label:'Cuenta Rappi',    color:getVar('--rappi')}
+};
+function getVar(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
+
+const TYPE_LABEL = {gasto:'Gasto', ingreso:'Ingreso', ahorro:'Ahorro', emergencia:'Ahorro emergencia', transferencia:'Transferencia'};
+
+const CATEGORIES = {
+  gasto: ['Natación','Mercado','Utensilios casa','Medicamentos','Tarjeta rappi','Tarjeta daviplata/davivienda',
+    'Promédicos','Celular e internet','Arriendo','Energía','Gas','Agua y alcantarillado','Transporte',
+    'Alimentación','Ocio y gusticos','Mecánico','Detalles','Cafecito','Peajes y pasajes','Gasolina','Otro'],
+  ingreso: ['Salario','Ingreso extra','Reembolso','Otro'],
+  ahorro: ['Ahorro general','Meta específica','Otro'],
+  emergencia: ['Fondo de emergencia','Otro']
+};
+
+let state = {
+  transactions: [],
+  currentType: 'gasto',
+  currentAccount: 'efectivo',
+  viewMonth: new Date().getMonth(),
+  viewYear: new Date().getFullYear(),
+  filterAccount: '',
+  filterType: '',
+  activeAccountCard: ''
+};
+
+let pieChart = null;
+
+async function loadData(){
+  try{
+    const raw = localStorage.getItem('mf_transactions');
+    state.transactions = raw ? JSON.parse(raw) : [];
+  }catch(e){
+    state.transactions = [];
+  }
+}
+
+async function saveData(){
+  try{
+    localStorage.setItem('mf_transactions', JSON.stringify(state.transactions));
+  }catch(e){
+    console.error('No se pudo guardar', e);
+    alert('No se pudo guardar el movimiento en este navegador.');
+  }
+}
+
+function fmt(n){
+  return new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', maximumFractionDigits:0}).format(n);
+}
+
+function monthLabel(){
+  const d = new Date(state.viewYear, state.viewMonth, 1);
+  return d.toLocaleDateString('es-CO', {month:'long', year:'numeric'});
+}
+
+function txInView(){
+  return state.transactions.filter(t=>{
+    const d = new Date(t.date+'T00:00:00');
+    return d.getMonth()===state.viewMonth && d.getFullYear()===state.viewYear;
+  });
+}
+
+function buildAccountToggle(){
+  const el = document.getElementById('acctToggle');
+  el.innerHTML='';
+  Object.entries(ACCOUNTS).forEach(([key,acc])=>{
+    const b = document.createElement('button');
+    b.type='button';
+    b.dataset.acct = key;
+    b.className = key===state.currentAccount ? 'active':'';
+    b.innerHTML = `<span class="dot" style="background:${acc.color}"></span>${acc.label}`;
+    b.onclick = ()=>{ state.currentAccount = key; buildAccountToggle(); };
+    el.appendChild(b);
+  });
+
+  const toSel = document.getElementById('toAccountSelect');
+  if(toSel && !toSel.dataset.built){
+    Object.entries(ACCOUNTS).forEach(([key,acc])=>{
+      const o = document.createElement('option');
+      o.value = key; o.textContent = acc.label;
+      toSel.appendChild(o);
+    });
+    toSel.dataset.built = '1';
+  }
+}
+
+function buildCategorySelect(){
+  const isTransfer = state.currentType === 'transferencia';
+  document.getElementById('categoryField').style.display = isTransfer ? 'none' : 'block';
+  document.getElementById('toAccountField').style.display = isTransfer ? 'block' : 'none';
+  if(isTransfer){
+    document.getElementById('customCatField').style.display = 'none';
+    return;
+  }
+  const sel = document.getElementById('categorySelect');
+  sel.innerHTML='';
+  CATEGORIES[state.currentType].forEach(c=>{
+    const o = document.createElement('option');
+    o.value=c; o.textContent=c;
+    sel.appendChild(o);
+  });
+  document.getElementById('customCatField').style.display = (sel.value==='Otro') ? 'block':'none';
+}
+
+document.getElementById('categorySelect').addEventListener('change', (e)=>{
+  document.getElementById('customCatField').style.display = e.target.value==='Otro' ? 'block':'none';
+});
+
+document.getElementById('typeToggle').addEventListener('click',(e)=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  state.currentType = btn.dataset.type;
+  [...document.getElementById('typeToggle').children].forEach(b=>b.classList.toggle('active', b===btn));
+  buildCategorySelect();
+});
+
+function renderAccountsRow(){
+  const el = document.getElementById('accountsRow');
+  el.innerHTML='';
+  const monthTx = txInView();
+  Object.entries(ACCOUNTS).forEach(([key,acc])=>{
+    const balance = state.transactions.reduce((sum,t)=>{
+      if(t.type==='transferencia'){
+        if(t.account===key) sum -= t.amount;
+        if(t.toAccount===key) sum += t.amount;
+        return sum;
+      }
+      if(t.account!==key) return sum;
+      return sum + (t.type==='ingreso' ? t.amount : -t.amount);
+    },0);
+    const card = document.createElement('div');
+    card.className = 'acct-card' + (state.activeAccountCard===key ? ' active':'');
+    card.style.setProperty('--acc', acc.color);
+    card.innerHTML = `
+      <div class="acct-name"><span class="dot"></span>${acc.label}</div>
+      <div class="acct-balance num ${balance<0?'neg':''}">${fmt(balance)}</div>`;
+    card.onclick = ()=>{
+      state.activeAccountCard = state.activeAccountCard===key ? '' : key;
+      document.getElementById('filterAccount').value = state.activeAccountCard;
+      state.filterAccount = state.activeAccountCard;
+      renderAll();
+    };
+    el.appendChild(card);
+  });
+}
+
+function renderSummary(){
+  const monthTx = txInView();
+  const sums = {gasto:0, ingreso:0, ahorro:0, emergencia:0};
+  monthTx.forEach(t=>{ if(sums[t.type]!==undefined) sums[t.type]+=t.amount; });
+  const balance = sums.ingreso - sums.gasto - sums.ahorro - sums.emergencia;
+  const el = document.getElementById('summaryRow');
+  el.innerHTML = `
+    <div class="sum-item ingreso"><div class="lbl">Ingresos</div><div class="val num">${fmt(sums.ingreso)}</div></div>
+    <div class="sum-item gasto"><div class="lbl">Gastos</div><div class="val num">${fmt(sums.gasto)}</div></div>
+    <div class="sum-item ahorro"><div class="lbl">Ahorro</div><div class="val num">${fmt(sums.ahorro)}</div></div>
+    <div class="sum-item ahorro"><div class="lbl">Ahorro emergencia</div><div class="val num">${fmt(sums.emergencia)}</div></div>
+    <div class="sum-item balance"><div class="lbl">Balance del mes</div><div class="val num">${fmt(balance)}</div></div>
+  `;
+}
+
+function renderChart(){
+  const monthTx = txInView().filter(t=>t.type==='gasto');
+  const byCat = {};
+  monthTx.forEach(t=>{ byCat[t.category] = (byCat[t.category]||0) + t.amount; });
+  const labels = Object.keys(byCat);
+  const data = Object.values(byCat);
+  const palette = ['#C1432A','#E8B923','#4E9A6B','#E8368F','#FF5A3C','#8A6D9B','#3E7CB1','#C97B3D','#6A8E5E','#B15A8B','#4E7A6B','#A38F3D'];
+  const ctx = document.getElementById('pieChart');
+  if(pieChart) pieChart.destroy();
+  if(labels.length===0){
+    ctx.getContext('2d').clearRect(0,0,ctx.width,ctx.height);
+    return;
+  }
+  pieChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data, backgroundColor: labels.map((_,i)=>palette[i%palette.length]), borderColor:'#F1E8D2', borderWidth:2 }] },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:10.5, family:'Inter'}, color:'#241C0F' } } },
+      cutout:'55%'
+    }
+  });
+}
+
+function renderTable(){
+  const body = document.getElementById('txBody');
+  let list = txInView().slice().sort((a,b)=> b.date.localeCompare(a.date));
+  if(state.filterAccount) list = list.filter(t=>t.account===state.filterAccount);
+  if(state.filterType) list = list.filter(t=>t.type===state.filterType);
+
+  if(list.length===0){
+    body.innerHTML = `<tr class="empty-row"><td colspan="6">Sin movimientos registrados para este filtro.</td></tr>`;
+    return;
+  }
+  body.innerHTML = list.map(t=>{
+    const acc = ACCOUNTS[t.account];
+    const d = new Date(t.date+'T00:00:00');
+    const dstr = d.toLocaleDateString('es-CO',{day:'2-digit',month:'short'});
+    if(t.type==='transferencia'){
+      const toAcc = ACCOUNTS[t.toAccount] || {label:'—', color:'#999'};
+      return `<tr>
+        <td>${dstr}</td>
+        <td>${t.category||'Transferencia'}</td>
+        <td><span class="tag" style="background:${acc.color}">${acc.label}</span> → <span class="tag" style="background:${toAcc.color}">${toAcc.label}</span></td>
+        <td style="color:var(--muted-on-paper);font-size:12.5px;">${t.note||''}</td>
+        <td class="amount" style="color:#3E7CB1;">↔ ${fmt(t.amount)}</td>
+        <td><button class="del-btn" data-id="${t.id}" title="Eliminar">✕</button></td>
+      </tr>`;
+    }
+    const sign = t.type==='ingreso' ? '+' : '−';
+    return `<tr>
+      <td>${dstr}</td>
+      <td>${t.category}</td>
+      <td><span class="tag" style="background:${acc.color}">${acc.label}</span></td>
+      <td style="color:var(--muted-on-paper);font-size:12.5px;">${t.note||''}</td>
+      <td class="amount ${t.type}">${sign} ${fmt(t.amount)}</td>
+      <td><button class="del-btn" data-id="${t.id}" title="Eliminar">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  body.querySelectorAll('.del-btn').forEach(btn=>{
+    btn.onclick = async ()=>{
+      state.transactions = state.transactions.filter(t=>t.id!==btn.dataset.id);
+      await saveData();
+      renderAll();
+    };
+  });
+}
+
+function renderAll(){
+  document.getElementById('monthLabel').textContent = monthLabel();
+  renderAccountsRow();
+  renderSummary();
+  renderChart();
+  renderTable();
+}
+
+document.getElementById('prevMonth').onclick = ()=>{
+  state.viewMonth--; if(state.viewMonth<0){state.viewMonth=11; state.viewYear--;}
+  renderAll();
+};
+document.getElementById('nextMonth').onclick = ()=>{
+  state.viewMonth++; if(state.viewMonth>11){state.viewMonth=0; state.viewYear++;}
+  renderAll();
+};
+
+document.getElementById('filterAccount').onchange = (e)=>{ state.filterAccount = e.target.value; state.activeAccountCard=e.target.value; renderAll(); };
+document.getElementById('filterType').onchange = (e)=>{ state.filterType = e.target.value; renderTable(); };
+
+document.getElementById('addBtn').onclick = async ()=>{
+  const amountRaw = document.getElementById('amountInput').value;
+  const amount = parseFloat(amountRaw);
+  if(!amount || amount<=0){ alert('Ingresa un monto válido.'); return; }
+  const date = document.getElementById('dateInput').value || new Date().toISOString().slice(0,10);
+  const note = document.getElementById('noteInput').value.trim();
+
+  const tx = {
+    id: Date.now().toString(36)+Math.random().toString(36).slice(2,7),
+    type: state.currentType,
+    amount,
+    account: state.currentAccount,
+    date,
+    note
+  };
+
+  if(state.currentType==='transferencia'){
+    const toAccount = document.getElementById('toAccountSelect').value;
+    if(toAccount===state.currentAccount){ alert('Elige una cuenta destino distinta a la de origen.'); return; }
+    tx.toAccount = toAccount;
+    tx.category = 'Transferencia';
+  } else {
+    let category = document.getElementById('categorySelect').value;
+    if(category==='Otro'){
+      const custom = document.getElementById('customCat').value.trim();
+      if(custom) category = custom;
+    }
+    tx.category = category;
+  }
+
+  state.transactions.push(tx);
+  await saveData();
+
+  document.getElementById('amountInput').value='';
+  document.getElementById('noteInput').value='';
+  document.getElementById('customCat').value='';
+
+  const d = new Date(date+'T00:00:00');
+  state.viewMonth = d.getMonth(); state.viewYear = d.getFullYear();
+  renderAll();
+};
+
+async function init(){
+  document.getElementById('dateInput').value = new Date().toISOString().slice(0,10);
+  buildAccountToggle();
+  buildCategorySelect();
+  await loadData();
+  renderAll();
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+}
+init();
+
+/* ---------- Importador de mensajes bancarios ---------- */
+
+function parseAmount(raw){
+  raw = raw.trim();
+  const lastComma = raw.lastIndexOf(',');
+  const lastDot = raw.lastIndexOf('.');
+  const lastSep = Math.max(lastComma, lastDot);
+  if(lastSep !== -1 && raw.length - lastSep - 1 === 2){
+    const intPart = raw.slice(0, lastSep).replace(/[.,]/g,'');
+    return parseFloat(intPart);
+  }
+  return parseFloat(raw.replace(/[.,]/g,'')) || 0;
+}
+
+function parseDate(dstr){
+  let [d,m,y] = dstr.split('/');
+  if(y.length===2) y = '20'+y;
+  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+
+function guessCategory(merchant){
+  const m = merchant.toUpperCase();
+  if(/AGUAS|ACUEDUCTO/.test(m)) return 'Agua y alcantarillado';
+  if(/ENERGIA|EPM|ELECTRIC/.test(m)) return 'Energía';
+  if(/CLARO|MOVISTAR|TIGO|COMCEL|CELULAR|WOM|VIRGIN/.test(m)) return 'Celular e internet';
+  if(/EXITO|CARULLA|MERCADO|D1|ARA|OLIMPICA|JUMBO/.test(m)) return 'Mercado';
+  if(/RAPPI/.test(m)) return 'Tarjeta rappi';
+  if(/FARMA|DROGUERIA|MEDIC/.test(m)) return 'Medicamentos';
+  if(/GOPASS|PEAJE/.test(m)) return 'Peajes y pasajes';
+  if(/GASOLINA|COMBUST|EDS|TERPEL|BIOMAX/.test(m)) return 'Gasolina';
+  if(/CAFE|PANADERIA/.test(m)) return 'Cafecito';
+  return 'Otro';
+}
+
+const SMS_PATTERNS = [
+  { verb:'gasto',  re:/Pagaste\s+\$?\s*([\d.,]+)\s+a\s+([A-ZÁÉÍÓÚÑ0-9 .]+?)\s+desde.*?(\d{2}\/\d{2}\/\d{2,4})/i },
+  { verb:'gasto',  re:/Compraste\s+(?:COP|\$)?\s*([\d.,]+)\s+en\s+([A-ZÁÉÍÓÚÑ0-9 .]+?),?\s*el\s+(\d{2}\/\d{2}\/\d{2,4})/i },
+  { verb:'retiro', re:/Retiraste\s+\$?\s*([\d.,]+)\s+en\s+([A-ZÁÉÍÓÚÑ0-9 .]+?)\s+de\s+tu.*?(\d{2}\/\d{2}\/\d{2,4})/i },
+  { verb:'ingreso',re:/[Rr]ecibiste\s+una\s+transferencia\s+de\s+([A-ZÁÉÍÓÚÑ0-9 .]+?)\s+por\s+\$?\s*([\d.,]+).*?(\d{2}\/\d{2}\/\d{2,4})/i, order:['name','amount','date'] },
+  { verb:'gasto',  re:/Transferiste\s+\$?\s*([\d.,]+)\s+por\s+.+?\s+a\s+([A-ZÁÉÍÓÚÑ0-9 .]+?)\s+desde.*?(\d{2}\/\d{2}\/\d{2,4})/i },
+];
+
+function parseSmsBlock(block){
+  for(const pat of SMS_PATTERNS){
+    const m = block.match(pat.re);
+    if(!m) continue;
+    let amountStr, merchant, dateStr;
+    if(pat.order){
+      merchant = m[1]; amountStr = m[2]; dateStr = m[3];
+    } else {
+      amountStr = m[1]; merchant = m[2]; dateStr = m[3];
+    }
+    const amount = parseAmount(amountStr);
+    const date = parseDate(dateStr);
+    merchant = merchant.trim().replace(/\s+/g,' ');
+
+    if(pat.verb==='retiro'){
+      return { type:'transferencia', account:'bancolombia', toAccount:'efectivo', category:'Retiro a efectivo', amount, date, note:`Retiro en ${merchant}`, raw:block };
+    }
+    if(pat.verb==='ingreso'){
+      return { type:'ingreso', account:'bancolombia', category:'Transferencia recibida', amount, date, note:`De ${merchant}`, raw:block };
+    }
+    // gasto: si el destino parece otra cuenta propia, lo tratamos como transferencia
+    if(/NEQUI/.test(merchant.toUpperCase())){
+      return { type:'transferencia', account:'bancolombia', toAccount:'nequi', category:'Transferencia a Nequi', amount, date, note:merchant, raw:block };
+    }
+    if(/RAPPI/.test(merchant.toUpperCase()) && /CUENTA|SALDO/.test(merchant.toUpperCase())){
+      return { type:'transferencia', account:'bancolombia', toAccount:'rappi', category:'Transferencia a Rappi', amount, date, note:merchant, raw:block };
+    }
+    return { type:'gasto', account:'bancolombia', category:guessCategory(merchant), amount, date, note:merchant, raw:block };
+  }
+  return null;
+}
+
+let importDraft = [];
+
+function splitSmsText(text){
+  return text.split(/\n(?=Bancolombia:)/i).map(b=>b.trim()).filter(Boolean);
+}
+
+document.getElementById('openImport').onclick = ()=>{
+  document.getElementById('importOverlay').classList.add('open');
+};
+document.getElementById('closeImport').onclick = ()=>{
+  document.getElementById('importOverlay').classList.remove('open');
+};
+document.getElementById('importOverlay').addEventListener('click',(e)=>{
+  if(e.target.id==='importOverlay') e.currentTarget.classList.remove('open');
+});
+
+document.getElementById('parseBtn').onclick = ()=>{
+  const text = document.getElementById('smsInput').value;
+  const blocks = splitSmsText(text);
+  importDraft = [];
+  const unmatched = [];
+  blocks.forEach(b=>{
+    const parsed = parseSmsBlock(b);
+    if(parsed) importDraft.push(parsed);
+    else unmatched.push(b);
+  });
+  renderImportResults(unmatched);
+};
+
+function renderImportResults(unmatched){
+  const el = document.getElementById('importResults');
+  const acctOptions = Object.entries(ACCOUNTS).map(([k,a])=>`<option value="${k}">${a.label}</option>`).join('');
+  el.innerHTML = importDraft.map((item,i)=>{
+    const catField = item.type==='transferencia'
+      ? `<select data-field="toAccount" data-i="${i}">${Object.entries(ACCOUNTS).map(([k,a])=>`<option value="${k}" ${k===item.toAccount?'selected':''}>→ ${a.label}</option>`).join('')}</select>`
+      : `<input type="text" data-field="category" data-i="${i}" value="${item.category}">`;
+    return `<div class="parsed-item">
+      <input type="checkbox" checked data-i="${i}" class="incl-check">
+      <div>
+        <div class="raw">${item.note}</div>
+        <div class="parsed-row">
+          <select data-field="type" data-i="${i}">
+            <option value="gasto" ${item.type==='gasto'?'selected':''}>Gasto</option>
+            <option value="ingreso" ${item.type==='ingreso'?'selected':''}>Ingreso</option>
+            <option value="transferencia" ${item.type==='transferencia'?'selected':''}>Transferencia</option>
+          </select>
+          <select data-field="account" data-i="${i}">${acctOptions.replace(`value="${item.account}"`, `value="${item.account}" selected`)}</select>
+          ${catField}
+          <input type="date" data-field="date" data-i="${i}" value="${item.date}">
+        </div>
+      </div>
+      <div class="parsed-amount">${fmt(item.amount)}</div>
+    </div>`;
+  }).join('') + (unmatched.length ? `<div class="unmatched">${unmatched.length} mensaje(s) no se pudieron interpretar automáticamente y no se incluirán. Puedes agregarlos manualmente desde el formulario.</div>` : '');
+
+  el.querySelectorAll('select[data-field], input[data-field]').forEach(input=>{
+    input.addEventListener('change', (e)=>{
+      const i = +e.target.dataset.i;
+      importDraft[i][e.target.dataset.field] = e.target.value;
+      if(e.target.dataset.field==='type') renderImportResults(unmatched);
+    });
+  });
+
+  document.getElementById('confirmImport').style.display = importDraft.length ? 'block' : 'none';
+}
+
+document.getElementById('confirmImport').onclick = async ()=>{
+  const checks = document.querySelectorAll('.incl-check');
+  let added = 0;
+  checks.forEach(chk=>{
+    if(!chk.checked) return;
+    const item = importDraft[+chk.dataset.i];
+    state.transactions.push({
+      id: Date.now().toString(36)+Math.random().toString(36).slice(2,7)+added,
+      type:item.type, category:item.category||'', amount:item.amount,
+      account:item.account, toAccount:item.toAccount||null, date:item.date, note:item.note||''
+    });
+    added++;
+  });
+  await saveData();
+  document.getElementById('importOverlay').classList.remove('open');
+  document.getElementById('smsInput').value='';
+  document.getElementById('importResults').innerHTML='';
+  document.getElementById('confirmImport').style.display='none';
+  importDraft = [];
+  renderAll();
+  alert(`${added} movimiento(s) agregado(s) al libro.`);
+};
+</script>
+</body>
+</html>
