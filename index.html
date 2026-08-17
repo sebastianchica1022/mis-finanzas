@@ -702,61 +702,72 @@ function parseDate(dstr){
   return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
 }
 
+function cleanStr(s){
+  return s.trim().replace(/\s+/g,' ').replace(/[.,]+$/,'');
+}
+
+function extractDateFromBlock(block){
+  const m = block.match(/(\d{2}\/\d{2}\/\d{2,4})/);
+  return m ? parseDate(m[1]) : new Date().toISOString().slice(0,10);
+}
+
 function guessCategory(merchant){
   const m = merchant.toUpperCase();
   if(/AGUAS|ACUEDUCTO/.test(m)) return 'Agua y alcantarillado';
-  if(/ENERGIA|EPM|ELECTRIC/.test(m)) return 'Energía';
+  if(/HIDROEL|ENERGIA|EPM|ELECTRIC/.test(m)) return 'Energía';
   if(/CLARO|MOVISTAR|TIGO|COMCEL|CELULAR|WOM|VIRGIN/.test(m)) return 'Celular e internet';
-  if(/EXITO|CARULLA|MERCADO|D1|ARA|OLIMPICA|JUMBO/.test(m)) return 'Mercado';
+  if(/EXITO|CARULLA|MERCADO|D1\b|ARA\b|OLIMPICA|JUMBO/.test(m)) return 'Mercado';
   if(/RAPPI/.test(m)) return 'Tarjeta rappi';
   if(/FARMA|DROGUERIA|MEDIC/.test(m)) return 'Medicamentos';
   if(/GOPASS|PEAJE/.test(m)) return 'Peajes y pasajes';
   if(/GASOLINA|COMBUST|EDS|TERPEL|BIOMAX/.test(m)) return 'Gasolina';
   if(/CAFE|PANADERIA/.test(m)) return 'Cafecito';
+  if(/FRISBY|RESTAURAN|CREPES|WAFFLES|CUINA|FERMIN|COMIDA/.test(m)) return 'Alimentación';
   return 'Otro';
 }
 
-const SMS_PATTERNS = [
-  { verb:'gasto',  re:/Pagaste\s+\$?\s*([\d.,]+)\s+a\s+([A-ZÁÉÍÓÚÑ0-9 .]+?)\s+desde.*?(\d{2}\/\d{2}\/\d{2,4})/i },
-  { verb:'gasto',  re:/Compraste\s+(?:COP|\$)?\s*([\d.,]+)\s+en\s+([A-ZÁÉÍÓÚÑ0-9 .]+?),?\s*el\s+(\d{2}\/\d{2}\/\d{2,4})/i },
-  { verb:'retiro', re:/Retiraste\s+\$?\s*([\d.,]+)\s+en\s+([A-ZÁÉÍÓÚÑ0-9 .]+?)\s+de\s+tu.*?(\d{2}\/\d{2}\/\d{2,4})/i },
-  { verb:'ingreso',re:/[Rr]ecibiste\s+una\s+transferencia\s+de\s+([A-ZÁÉÍÓÚÑ0-9 .]+?)\s+por\s+\$?\s*([\d.,]+).*?(\d{2}\/\d{2}\/\d{2,4})/i, order:['name','amount','date'] },
-  { verb:'gasto',  re:/Transferiste\s+\$?\s*([\d.,]+)\s+por\s+.+?\s+a\s+([A-ZÁÉÍÓÚÑ0-9 .]+?)\s+desde.*?(\d{2}\/\d{2}\/\d{2,4})/i },
+/* Cada mensaje real de Bancolombia usa una redacción distinta según el tipo de
+   movimiento; se intenta cada patrón en orden y se usa el primero que calce.
+   La fecha se extrae por separado porque su posición varía entre mensajes. */
+const SMS_MATCHERS = [
+  { name:'ingreso_de_por', re:/recib(?:iste)?\s+una\s+transferencia\s+de\s+(.+?)\s+por\s+\$?\s*([\d.,]+)/i,
+    build:(m)=>({type:'ingreso', account:'bancolombia', category:'Transferencia recibida', amount:parseAmount(m[2]), note:`De ${cleanStr(m[1])}`}) },
+  { name:'ingreso_por_de', re:/recib(?:iste)?\s+una\s+transferencia\s+por\s+\$?\s*([\d.,]+)\s+de\s+(.+?)(?:\s+en\s+tu\s+cuenta|,|\.|$)/i,
+    build:(m)=>({type:'ingreso', account:'bancolombia', category:'Transferencia recibida', amount:parseAmount(m[1]), note:`De ${cleanStr(m[2])}`}) },
+  { name:'ingreso_pago', re:/recib(?:iste)?\s+un\s+pago\s+por\s+\$?\s*([\d.,]+)\s+de\s+(.+?)(?:\s+a\s+tu\s+cuenta|,|\.|$)/i,
+    build:(m)=>({type:'ingreso', account:'bancolombia', category:'Pago recibido', amount:parseAmount(m[1]), note:`De ${cleanStr(m[2])}`}) },
+  { name:'qr', re:/pagaste\s+\$?\s*([\d.,]+)\s+por\s+c[oó]digo\s+qr.*?a\s+la\s+llave\s+(\S+)/i,
+    build:(m)=>({type:'gasto', account:'bancolombia', category:'Pago QR', amount:parseAmount(m[1]), note:`Llave ${m[2]}`}) },
+  { name:'brebpersona', re:/transferiste\s+\$?\s*([\d.,]+)\s+a\s+la\s+llave\s+\S+\s+desde\s+tu\s+cuenta\s+\S+\s+a\s+(.+?)\s+el\s+\d{2}/i,
+    build:(m)=>({type:'gasto', account:'bancolombia', category:'Transferencia', amount:parseAmount(m[1]), note:cleanStr(m[2])}) },
+  { name:'cuentanum', re:/transferiste\s+\$?\s*([\d.,]+)\s+desde\s+tu\s+cuenta.*?\s+a\s+la\s+cuenta\s*\*?\s*([\d ]+)/i,
+    build:(m)=>({type:'gasto', account:'bancolombia', category:'Transferencia', amount:parseAmount(m[1]), note:`Cuenta *${cleanStr(m[2])}`}) },
+  { name:'boton', re:/transferiste\s+\$?\s*([\d.,]+)\s+por\s+.+?\s+a\s+(.+?)\s+desde/i,
+    build:(m)=>({type:'gasto', account:'bancolombia', category:guessCategory(m[2]), amount:parseAmount(m[1]), note:cleanStr(m[2])}) },
+  { name:'pagaste', re:/pagaste\s+\$?\s*([\d.,]+)\s+a\s+(.+?)\s+desde/i,
+    build:(m)=>({type:'gasto', account:'bancolombia', category:guessCategory(m[2]), amount:parseAmount(m[1]), note:cleanStr(m[2])}) },
+  { name:'compraste', re:/compraste\s+(?:cop|\$)?\s*([\d.,]+)\s+en\s+(.+?)(?:\s+con\s+tu\b|\s*,?\s*el\s+\d{2}\/)/i,
+    build:(m)=>({type:'gasto', account:'bancolombia', category:guessCategory(m[2]), amount:parseAmount(m[1]), note:cleanStr(m[2])}) },
+  { name:'retiraste', re:/retiraste\s+\$?\s*([\d.,]+)\s+en\s+(.+?)\s+de\s+tu/i,
+    build:(m)=>({type:'transferencia', account:'bancolombia', toAccount:'efectivo', category:'Retiro a efectivo', amount:parseAmount(m[1]), note:`Retiro en ${cleanStr(m[2])}`}) },
 ];
 
 function parseSmsBlock(block){
-  for(const pat of SMS_PATTERNS){
-    const m = block.match(pat.re);
+  for(const matcher of SMS_MATCHERS){
+    const m = block.match(matcher.re);
     if(!m) continue;
-    let amountStr, merchant, dateStr;
-    if(pat.order){
-      merchant = m[1]; amountStr = m[2]; dateStr = m[3];
-    } else {
-      amountStr = m[1]; merchant = m[2]; dateStr = m[3];
-    }
-    const amount = parseAmount(amountStr);
-    const date = parseDate(dateStr);
-    merchant = merchant.trim().replace(/\s+/g,' ');
-
-    if(pat.verb==='retiro'){
-      return { type:'transferencia', account:'bancolombia', toAccount:'efectivo', category:'Retiro a efectivo', amount, date, note:`Retiro en ${merchant}`, raw:block };
-    }
-    if(pat.verb==='ingreso'){
-      return { type:'ingreso', account:'bancolombia', category:'Transferencia recibida', amount, date, note:`De ${merchant}`, raw:block };
-    }
-    // gasto: si el destino parece otra cuenta propia, lo tratamos como transferencia
-    if(/NEQUI/.test(merchant.toUpperCase())){
-      return { type:'transferencia', account:'bancolombia', toAccount:'nequi', category:'Transferencia a Nequi', amount, date, note:merchant, raw:block };
-    }
-    if(/RAPPI/.test(merchant.toUpperCase()) && /CUENTA|SALDO/.test(merchant.toUpperCase())){
-      return { type:'transferencia', account:'bancolombia', toAccount:'rappi', category:'Transferencia a Rappi', amount, date, note:merchant, raw:block };
-    }
-    return { type:'gasto', account:'bancolombia', category:guessCategory(merchant), amount, date, note:merchant, raw:block };
+    const tx = matcher.build(m);
+    tx.date = extractDateFromBlock(block);
+    tx.raw = block;
+    if(tx.note && /NEQUI/i.test(tx.note)){ tx.type='transferencia'; tx.toAccount='nequi'; tx.category='Transferencia a Nequi'; }
+    else if(tx.note && /RAPPI/i.test(tx.note) && /CUENTA|SALDO/i.test(tx.note)){ tx.type='transferencia'; tx.toAccount='rappi'; tx.category='Transferencia a Rappi'; }
+    return tx;
   }
   return null;
 }
 
 let importDraft = [];
+
 
 function splitSmsText(text){
   return text.split(/\n(?=Bancolombia:)/i).map(b=>b.trim()).filter(Boolean);
