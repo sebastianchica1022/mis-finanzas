@@ -723,6 +723,7 @@ function guessCategory(merchant){
   if(/GASOLINA|COMBUST|EDS|TERPEL|BIOMAX/.test(m)) return 'Gasolina';
   if(/CAFE|PANADERIA/.test(m)) return 'Cafecito';
   if(/FRISBY|RESTAURAN|CREPES|WAFFLES|CUINA|FERMIN|COMIDA/.test(m)) return 'Alimentación';
+  if(/UBER|TAXI|CABIFY|DIDI|INDRIVE/.test(m)) return 'Transporte';
   return 'Otro';
 }
 
@@ -750,6 +751,8 @@ const SMS_MATCHERS = [
     build:(m)=>({type:'gasto', account:'bancolombia', category:guessCategory(m[2]), amount:parseAmount(m[1]), note:cleanStr(m[2])}) },
   { name:'retiraste', re:/retiraste\s+\$?\s*([\d.,]+)\s+en\s+(.+?)\s+de\s+tu/i,
     build:(m)=>({type:'transferencia', account:'bancolombia', toAccount:'efectivo', category:'Retiro a efectivo', amount:parseAmount(m[1]), note:`Retiro en ${cleanStr(m[2])}`}) },
+  { name:'rappicard', re:/RappiCard[\s\S]*?Monto\s*\n\$?\s*([\d.,]+)[\s\S]*?Comercio\s*\n\s*(.+?)\s*\n[\s\S]*?Fecha de la transacci[oó]n\s*\n\s*(\d{4}-\d{2}-\d{2})/i,
+    build:(m)=>({type:'gasto', account:'rappi', category:guessCategory(m[2]), amount:parseAmount(m[1]), note:cleanStr(m[2]), date:m[3]}) },
 ];
 
 function parseSmsBlock(block){
@@ -757,7 +760,7 @@ function parseSmsBlock(block){
     const m = block.match(matcher.re);
     if(!m) continue;
     const tx = matcher.build(m);
-    tx.date = extractDateFromBlock(block);
+    tx.date = tx.date || extractDateFromBlock(block);
     tx.raw = block;
     if(tx.note && /NEQUI/i.test(tx.note)){ tx.type='transferencia'; tx.toAccount='nequi'; tx.category='Transferencia a Nequi'; }
     else if(tx.note && /RAPPI/i.test(tx.note) && /CUENTA|SALDO/i.test(tx.note)){ tx.type='transferencia'; tx.toAccount='rappi'; tx.category='Transferencia a Rappi'; }
@@ -770,7 +773,7 @@ let importDraft = [];
 
 
 function splitSmsText(text){
-  return text.split(/\n(?=Bancolombia:)/i).map(b=>b.trim()).filter(Boolean);
+  return text.split(/\n(?=Bancolombia:|Hola,\s)/i).map(b=>b.trim()).filter(Boolean);
 }
 
 document.getElementById('openImport').onclick = ()=>{
